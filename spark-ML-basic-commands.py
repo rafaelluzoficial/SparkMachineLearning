@@ -157,3 +157,55 @@ previsao_dt.show(truncate=False)
 obj_avaliar_dt = BinaryClassificationEvaluator(rawPredictionCol="prediction", labelCol="labelCol", metricName="areaUnderROC")
 avaliar_dt = obj_avaliar_dt.evaluate(previsao_dt)
 print(avaliar_dt)
+
+# COMMAND ----------
+
+# --------------------------------------------------------------------------#
+# Usando modelos de classificação multi-classes                             #
+# Dado uma determinada planta, prever sua classificação                     #
+# --------------------------------------------------------------------------#
+
+# biblioteca para criar um modelos de classificação
+from pyspark.ml.feature import RFormula
+# biblioteca para cirar algoritmo de classificação árvore de decisão
+from pyspark.ml.classification import NaiveBayes
+# biblioteca para avaliar a performance do modelo de classificação binária
+from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+
+# Ingestão de dados
+iris = spark.read.csv('/FileStore/tables/iris.csv', inferSchema=True, header=True, sep=",")
+iris.show(truncate=False)
+
+# COMMAND ----------
+
+# Criando objeto R Fórmula para criar modelo de classificação
+formula = RFormula(formula="class ~ .", featuresCol="featuresCol", labelCol="labelCol", handleInvalid="skip")
+
+# Realizando One Hot Encoding dos dados usando o modelo criado
+iris_transformado = formula.fit(iris).transform(iris).select("featuresCol", "labelCol")
+iris_transformado.show(truncate=False)
+
+# COMMAND ----------
+
+# Dividindo os dados em treino e teste
+irisTreino, irisTeste = iris_transformado.randomSplit([0.7,0.3])
+print(irisTreino.count())
+print(irisTeste.count())
+
+# COMMAND ----------
+
+# Criando objeto para geração do modelo de classificação
+objeto_nb = NaiveBayes(labelCol="labelCol", featuresCol="featuresCol")
+# criando modelo de classificação
+modelo_nb = objeto_nb.fit(irisTreino)
+
+# Realizando previsões com o modelo criado
+previsao_nb = modelo_nb.transform(irisTeste)
+previsao_nb.show(truncate=False)
+
+# COMMAND ----------
+
+# Avaliar a performance do modelo usando métrica de área sobre a curva, quanto mais próximo de 1 melhor
+obj_avaliar_nb = MulticlassClassificationEvaluator(predictionCol="prediction", labelCol="labelCol", metricName="accuracy")
+avaliar_nb = obj_avaliar_nb.evaluate(previsao_nb)
+print(avaliar_nb)
